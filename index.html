@@ -761,14 +761,28 @@
     if (!res.ok && res.status !== 204) throw new Error('Delete failed');
   }
 
+  /**
+   * Fetch the list of activity types from the API and populate the select dropdown.
+   * Uses DocumentFragment + createElement to avoid innerHTML with user-controlled data.
+   * @returns {Promise<void>}
+   */
   async function loadActivities() {
     activities = await apiGet('/api/activities');
-    els.activitySelect.innerHTML = activities.map(a =>
-      `<option value="${a.key}">${a.icon} ${a.label}</option>`
-    ).join('');
+    const frag = document.createDocumentFragment();
+    activities.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.key;
+      opt.textContent = `${a.icon} ${a.label}`;
+      frag.appendChild(opt);
+    });
+    els.activitySelect.replaceChildren(frag);
     updateUnitHint();
   }
 
+  /**
+   * Update the unit hint text below the activity dropdown.
+   * Reads the currently selected activity and sets a plain-text hint.
+   */
   function updateUnitHint() {
     const selected = activities.find(a => a.key === els.activitySelect.value);
     if (selected) {
@@ -776,6 +790,11 @@
     }
   }
 
+  /**
+   * Format a number to 2 decimal places as a string.
+   * @param {number} n - The value to format.
+   * @returns {string} Formatted value, e.g. "3.14".
+   */
   function fmt(n) {
     return Number(n).toFixed(2);
   }
@@ -801,79 +820,158 @@
     renderSuggestions(data.suggestions);
   }
 
+  /**
+   * Render the horizontal category bar chart and its legend.
+   * Uses DocumentFragment to batch DOM insertions, minimising reflows.
+   * All content is created via createElement/textContent — no innerHTML.
+   * @param {Object<string,number>} breakdown - Category name → total kg CO2e.
+   */
   function renderCategoryBar(breakdown) {
     const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
-    els.categoryBar.innerHTML = '';
-    els.categoryLegend.innerHTML = '';
+    const barFrag = document.createDocumentFragment();
+    const legendFrag = document.createDocumentFragment();
 
     if (total === 0) {
-      els.categoryBar.innerHTML = `<div class="seg" style="width:100%;background:${CATEGORY_COLORS.other};opacity:0.25;"></div>`;
-      els.categoryLegend.innerHTML = '<div class="item">No data yet this period</div>';
-      return;
+      const emptyBar = document.createElement('div');
+      emptyBar.className = 'seg';
+      emptyBar.style.cssText = `width:100%;background:${CATEGORY_COLORS.other};opacity:0.25;`;
+      barFrag.appendChild(emptyBar);
+
+      const emptyLegend = document.createElement('div');
+      emptyLegend.className = 'item';
+      emptyLegend.textContent = 'No data yet this period';
+      legendFrag.appendChild(emptyLegend);
+    } else {
+      Object.entries(breakdown).forEach(([cat, val]) => {
+        if (val <= 0) return;
+        const pct = (val / total) * 100;
+        const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS.other;
+
+        const seg = document.createElement('div');
+        seg.className = 'seg';
+        seg.style.width = pct + '%';
+        seg.style.background = color;
+        seg.title = `${CATEGORY_LABELS[cat] || cat}: ${fmt(val)} kg`;
+        barFrag.appendChild(seg);
+
+        const legendItem = document.createElement('div');
+        legendItem.className = 'item';
+        const swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = color;
+        const label = document.createTextNode(`${CATEGORY_LABELS[cat] || cat} · ${fmt(val)} kg`);
+        legendItem.appendChild(swatch);
+        legendItem.appendChild(label);
+        legendFrag.appendChild(legendItem);
+      });
     }
 
-    Object.entries(breakdown).forEach(([cat, val]) => {
-      if (val <= 0) return;
-      const pct = (val / total) * 100;
-      const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS.other;
-      const seg = document.createElement('div');
-      seg.className = 'seg';
-      seg.style.width = pct + '%';
-      seg.style.background = color;
-      seg.title = `${CATEGORY_LABELS[cat] || cat}: ${fmt(val)} kg`;
-      els.categoryBar.appendChild(seg);
-
-      const legendItem = document.createElement('div');
-      legendItem.className = 'item';
-      legendItem.innerHTML = `<span class="swatch" style="background:${color}"></span>${CATEGORY_LABELS[cat] || cat} · ${fmt(val)} kg`;
-      els.categoryLegend.appendChild(legendItem);
-    });
+    els.categoryBar.replaceChildren(barFrag);
+    els.categoryLegend.replaceChildren(legendFrag);
   }
 
+  /**
+   * Render suggestion cards using safe DOM methods.
+   * Uses DocumentFragment to batch DOM insertions and textContent for XSS safety.
+   * @param {string[]} list - Array of suggestion strings.
+   */
   function renderSuggestions(list) {
-    els.suggestions.innerHTML = list.map(s =>
-      `<div class="suggestion-card">${escapeHtml(s)}</div>`
-    ).join('');
+    const frag = document.createDocumentFragment();
+    list.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'suggestion-card';
+      card.textContent = s;
+      frag.appendChild(card);
+    });
+    els.suggestions.replaceChildren(frag);
   }
 
+  /**
+   * Fetch and render the recent log entries list.
+   * All entry data is inserted via textContent or setAttribute — no innerHTML with variable data.
+   * Uses DocumentFragment to batch all row insertions in a single reflow.
+   * @returns {Promise<void>}
+   */
   async function loadLog() {
     const entries = await apiGet('/api/log?days=30');
+    const frag = document.createDocumentFragment();
+
     if (entries.length === 0) {
-      els.ledgerList.innerHTML = '<div class="ledger-empty">No entries yet. Log your first activity above.</div>';
+      const empty = document.createElement('div');
+      empty.className = 'ledger-empty';
+      empty.textContent = 'No entries yet. Log your first activity above.';
+      frag.appendChild(empty);
+      els.ledgerList.replaceChildren(frag);
       return;
     }
-    els.ledgerList.innerHTML = entries.map(e => `
-      <div class="ledger-row" data-id="${e.id}">
-        <span class="icon" aria-hidden="true">${e.icon}</span>
-        <span class="desc">
-          <span class="label">${escapeHtml(e.label)}</span>
-          <span class="meta">${e.entry_date} · ${e.quantity} units</span>
-        </span>
-        <span class="amount ${e.kg_co2e === 0 ? 'zero' : ''}">${fmt(e.kg_co2e)} kg</span>
-        <button class="del-btn" aria-label="Delete entry: ${escapeHtml(e.label)} on ${e.entry_date}" data-id="${e.id}">✕</button>
-      </div>
-    `).join('');
 
-    els.ledgerList.querySelectorAll('.del-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-id');
+    entries.forEach(e => {
+      const row = document.createElement('div');
+      row.className = 'ledger-row';
+      row.dataset.id = e.id;
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'icon';
+      iconSpan.setAttribute('aria-hidden', 'true');
+      iconSpan.textContent = e.icon;
+
+      const descSpan = document.createElement('span');
+      descSpan.className = 'desc';
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'label';
+      labelSpan.textContent = e.label;
+      const metaSpan = document.createElement('span');
+      metaSpan.className = 'meta';
+      metaSpan.textContent = `${e.entry_date} · ${e.quantity} units`;
+      descSpan.appendChild(labelSpan);
+      descSpan.appendChild(metaSpan);
+
+      const amountSpan = document.createElement('span');
+      amountSpan.className = e.kg_co2e === 0 ? 'amount zero' : 'amount';
+      amountSpan.textContent = `${fmt(e.kg_co2e)} kg`;
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'del-btn';
+      delBtn.setAttribute('aria-label', `Delete entry: ${e.label} on ${e.entry_date}`);
+      delBtn.dataset.id = e.id;
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', async () => {
         try {
-          await apiDelete(`/api/log/${id}`);
+          await apiDelete(`/api/log/${e.id}`);
           showToast('Entry removed');
           await refreshAll();
-        } catch (e) {
+        } catch (_err) {
           showToast('Could not delete entry');
         }
       });
+
+      row.appendChild(iconSpan);
+      row.appendChild(descSpan);
+      row.appendChild(amountSpan);
+      row.appendChild(delBtn);
+      frag.appendChild(row);
     });
+
+    els.ledgerList.replaceChildren(frag);
   }
 
+  /**
+   * Escape a string for safe inclusion in HTML content.
+   * @deprecated Prefer textContent / createElement over innerHTML with user data.
+   * Kept for backward compatibility with any inline usage during transition.
+   * @param {string} str - Raw string to escape.
+   * @returns {string} HTML-entity-escaped string.
+   */
   function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
   }
 
+  /**
+   * Refresh both the insights panel and the log entries list in parallel.
+   * @returns {Promise<void>}
+   */
   async function refreshAll() {
     await Promise.all([loadInsights(), loadLog()]);
   }
@@ -951,7 +1049,10 @@
       await loadActivities();
       await refreshAll();
     } catch (err) {
-      els.ledgerList.innerHTML = `<div class="ledger-empty">Error loading data.</div>`;
+      const errDiv = document.createElement('div');
+      errDiv.className = 'ledger-empty';
+      errDiv.textContent = 'Error loading data.';
+      els.ledgerList.replaceChildren(errDiv);
     }
   }
 
