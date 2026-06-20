@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.db
+.system_generated/
+.gemini/
+antigravity/

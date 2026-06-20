@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — Carbon Footprint Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF7F0;
+    --paper-line: #E8E2D4;
+    --ink: #1A1D17;
+    --ink-soft: #4B4E45;
+    --slate: #6B7280;
+    --ember: #C2511F;
+    --ember-soft: #F3E2D8;
+    --moss: #2D5239;
+    --moss-soft: #DEE8DF;
+    --gold: #B98A1F;
+    --radius: 3px;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --mono: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .masthead h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 28px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .masthead .sub {
+    color: var(--slate);
+    font-size: 13px;
+  }
+  .masthead .statement-date {
+    text-align: right;
+    font-size: 12px;
+    color: var(--slate);
+  }
+  .masthead .statement-date strong {
+    display: block;
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  /* ---------- Balance summary ---------- */
+  .balance-card {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .balance-card .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #B8BBAE;
+    margin-bottom: 8px;
+  }
+  .balance-card .amount {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .balance-card .amount .unit {
+    font-size: 16px;
+    font-weight: 500;
+    color: #B8BBAE;
+    margin-left: 6px;
+  }
+  .balance-card .meta-row {
+    display: flex;
+    gap: 28px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #3A3D33;
+    flex-wrap: wrap;
+  }
+  .balance-card .meta-item .meta-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #9A9D8F;
+    margin-bottom: 3px;
+  }
+  .balance-card .meta-item .meta-value {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .meta-value.over { color: #E8916B; }
+  .meta-value.under { color: #9BC4A8; }
+
+  /* ---------- Sections ---------- */
+  section { margin-bottom: 28px; }
+  .section-title {
+    font-family: var(--serif);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--paper-line);
+  }
+
+  /* ---------- Entry form (ledger row style) ---------- */
+  .entry-form {
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 0.7fr 0.9fr auto;
+    gap: 10px;
+    align-items: end;
+  }
+  @media (max-width: 560px) {
+    .form-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .field label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--slate);
+    margin-bottom: 5px;
+  }
+  .field select, .field input {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 9px 10px;
+    border: 1px solid #D7D2C2;
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .field select:focus, .field input:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+    border-color: var(--gold);
+  }
+  .unit-hint {
+    font-size: 11px;
+    color: var(--slate);
+    margin-top: 4px;
+  }
+  button {
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+  .btn-add {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .btn-add:hover { background: #34372C; }
+  .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .form-error {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--ember);
+    display: none;
+  }
+  .form-error.show { display: block; }
+
+  /* ---------- Ledger entries list ---------- */
+  .ledger {
+    border: 1px solid var(--paper-line);
+    border-radius: var(--radius);
+    background: #fff;
+    overflow: hidden;
+  }
+  .ledger-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--paper-line);
+    font-size: 13.5px;
+  }
+  .ledger-row:last-child { border-bottom: none; }
+  .ledger-row .icon { font-size: 17px; }
+  .ledger-row .desc .label { font-weight: 500; }
+  .ledger-row .desc .meta { color: var(--slate); font-size: 11.5px; margin-top: 1px; }
+  .ledger-row .amount {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .ledger-row .amount.zero { color: var(--moss); }
+  .ledger-row .amount:not(.zero) { color: var(--ember); }
+  .ledger-row .del-btn {
+    background: none;
+    border: none;
+    color: var(--slate);
+    font-size: 16px;
+    padding: 4px 6px;
+    line-height: 1;
+    border-radius: var(--radius);
+  }
+  .ledger-row .del-btn:hover { color: var(--ember); background: var(--ember-soft); }
+  .ledger-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--slate);
+    font-size: 13px;
+  }
+
+  /* ---------- Category bar ---------- */
+  .category-bar {
+    display: flex;
+    height: 28px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--paper-line);
+  }
+  .category-bar .seg { height: 100%; }
+  .category-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .category-legend .item { display: flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+  .category-legend .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  /* ---------- Suggestions ---------- */
+  .suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .suggestion-card {
+    background: var(--moss-soft);
+    border-left: 3px solid var(--moss);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13.5px;
+    color: #1F3826;
+    font-family: var(--serif);
+    line-height: 1.5;
+  }
+
+  /* ---------- Target setting ---------- */
+  .target-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--slate);
+  }
+  .target-row input {
+    width: 70px;
+    font-family: var(--mono);
+    padding: 6px 8px;
+    border: 1px solid #D7D2C2;
+    border-radius: var(--radius);
+    background: #fff;
+  }
+  .target-row button {
+    background: #fff;
+    border: 1px solid #D7D2C2;
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .target-row button:hover { border-color: var(--ink); }
+  .target-saved { color: var(--moss); font-size: 12px; opacity: 0; transition: opacity 0.3s; }
+  .target-saved.show { opacity: 1; }
+
+  .footnote {
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px solid var(--paper-line);
+    font-size: 11px;
+    color: var(--slate);
+    line-height: 1.6;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap; border: 0;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 100;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>Ledger</h1>
+      <div class="sub">A running account of your carbon footprint</div>
+    </div>
+    <div class="statement-date">
+      Statement period
+      <strong id="periodLabel">Last 7 days</strong>
+    </div>
+  </header>
+
+  <div class="balance-card">
+    <div class="label">Total emitted, this period</div>
+    <div class="amount"><span id="totalAmount">0.00</span><span class="unit">kg CO₂e</span></div>
+    <div class="meta-row">
+      <div class="meta-item">
+        <div class="meta-label">Daily average</div>
+        <div class="meta-value" id="dailyAvg">—</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Vs. target</div>
+        <div class="meta-value" id="vsTarget">—</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">≈ Trees to offset</div>
+        <div class="meta-value" id="treesEq">—</div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2 class="section-title">Log an activity</h2>
+    <div class="entry-form">
+      <form id="logForm" novalidate>
+        <div class="form-grid">
+          <div class="field">
+            <label for="activitySelect">Activity</label>
+            <select id="activitySelect" required aria-describedby="unitHint"></select>
+            <div class="unit-hint" id="unitHint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="quantityInput">Amount</label>
+            <input type="number" id="quantityInput" min="0.01" max="100000" step="0.01" placeholder="0" required>
+          </div>
+          <div class="field">
+            <label for="dateInput">Date</label>
+            <input type="date" id="dateInput" required>
+          </div>
+          <button type="submit" class="btn-add" id="addBtn">Add entry</button>
+        </div>
+        <div class="form-error" id="formError" role="alert"></div>
+      </form>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Breakdown by category</h2>
+    <div class="category-bar" id="categoryBar" role="img" aria-label="Category breakdown chart"></div>
+    <div class="category-legend" id="categoryLegend"></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Teller's notes — personalized suggestions</h2>
+    <div class="suggestions" id="suggestions"></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Recent entries</h2>
+    <div class="ledger" id="ledgerList">
+      <div class="ledger-empty">No entries yet. Log your first activity above.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Daily target</h2>
+    <div class="target-row">
+      <label for="targetInput">Set your daily budget:</label>
+      <input type="number" id="targetInput" min="0.1" max="1000" step="0.1" value="12">
+      <span>kg CO₂e / day</span>
+      <button id="saveTargetBtn" type="button">Save</button>
+      <span class="target-saved" id="targetSaved">Saved ✓</span>
+    </div>
+  </section>
+
+  <div class="footnote">
+    Emission factors are approximate averages from commonly cited public datasets (EPA/DEFRA-style figures),
+    intended for awareness and comparison — not audit-grade carbon accounting.
+    Data is stored locally on this server only and is not shared externally.
+  </div>
+
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  const API_BASE = 'http://127.0.0.1:8000';
+
+  const els = {
+    activitySelect: document.getElementById('activitySelect'),
+    unitHint: document.getElementById('unitHint'),
+    quantityInput: document.getElementById('quantityInput'),
+    dateInput: document.getElementById('dateInput'),
+    logForm: document.getElementById('logForm'),
+    addBtn: document.getElementById('addBtn'),
+    formError: document.getElementById('formError'),
+    totalAmount: document.getElementById('totalAmount'),
+    dailyAvg: document.getElementById('dailyAvg'),
+    vsTarget: document.getElementById('vsTarget'),
+    treesEq: document.getElementById('treesEq'),
+    categoryBar: document.getElementById('categoryBar'),
+    categoryLegend: document.getElementById('categoryLegend'),
+    suggestions: document.getElementById('suggestions'),
+    ledgerList: document.getElementById('ledgerList'),
+    targetInput: document.getElementById('targetInput'),
+    saveTargetBtn: document.getElementById('saveTargetBtn'),
+    targetSaved: document.getElementById('targetSaved'),
+    toast: document.getElementById('toast'),
+  };
+
+  const CATEGORY_COLORS = {
+    transport: '#C2511F',
+    energy: '#B98A1F',
+    food: '#7A3B8C',
+    waste: '#2D5239',
+    other: '#6B7280',
+  };
+  const CATEGORY_LABELS = {
+    transport: 'Transport', energy: 'Energy', food: 'Food', waste: 'Waste', other: 'Other',
+  };
+
+  let activities = [];
+
+  function showToast(msg) {
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    setTimeout(() => els.toast.classList.remove('show'), 2200);
+  }
+
+  async function apiGet(path) {
+    const res = await fetch(API_BASE + path);
+    if (!res.ok) throw new Error('Request failed: ' + res.status);
+    return res.json();
+  }
+
+  async function apiPost(path, body) {
+    const res = await fetch(API_BASE + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = (data && data.detail) ? data.detail : 'Request failed';
+      throw new Error(detail);
+    }
+    return data;
+  }
+
+  async function apiDelete(path) {
+    const res = await fetch(API_BASE + path, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) throw new Error('Delete failed');
+  }
+
+  async function loadActivities() {
+    activities = await apiGet('/api/activities');
+    els.activitySelect.innerHTML = activities.map(a =>
+      `<option value="${a.key}">${a.icon} ${a.label}</option>`
+    ).join('');
+    updateUnitHint();
+  }
+
+  function updateUnitHint() {
+    const selected = activities.find(a => a.key === els.activitySelect.value);
+    if (selected) {
+      els.unitHint.textContent = `Enter amount in ${selected.unit} · ${selected.kg_co2e_per_unit} kg CO₂e per ${selected.unit}`;
+    }
+  }
+
+  function fmt(n) {
+    return Number(n).toFixed(2);
+  }
+
+  async function loadInsights() {
+    const data = await apiGet('/api/insights?days=7');
+    els.totalAmount.textContent = fmt(data.total_kg_co2e);
+    els.dailyAvg.textContent = fmt(data.daily_average_kg_co2e) + ' kg';
+
+    const diff = data.over_under_target_kg;
+    if (diff > 0) {
+      els.vsTarget.textContent = `+${fmt(diff)} kg over`;
+      els.vsTarget.className = 'meta-value over';
+    } else {
+      els.vsTarget.textContent = `${fmt(Math.abs(diff))} kg under`;
+      els.vsTarget.className = 'meta-value under';
+    }
+    els.treesEq.textContent = fmt(data.trees_equivalent);
+
+    renderCategoryBar(data.breakdown_by_category);
+    renderSuggestions(data.suggestions);
+  }
+
+  function renderCategoryBar(breakdown) {
+    const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
+    els.categoryBar.innerHTML = '';
+    els.categoryLegend.innerHTML = '';
+
+    if (total === 0) {
+      els.categoryBar.innerHTML = `<div class="seg" style="width:100%;background:${CATEGORY_COLORS.other};opacity:0.25;"></div>`;
+      els.categoryLegend.innerHTML = '<div class="item">No data yet this period</div>';
+      return;
+    }
+
+    Object.entries(breakdown).forEach(([cat, val]) => {
+      if (val <= 0) return;
+      const pct = (val / total) * 100;
+      const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS.other;
+      const seg = document.createElement('div');
+      seg.className = 'seg';
+      seg.style.width = pct + '%';
+      seg.style.background = color;
+      seg.title = `${CATEGORY_LABELS[cat] || cat}: ${fmt(val)} kg`;
+      els.categoryBar.appendChild(seg);
+
+      const legendItem = document.createElement('div');
+      legendItem.className = 'item';
+      legendItem.innerHTML = `<span class="swatch" style="background:${color}"></span>${CATEGORY_LABELS[cat] || cat} · ${fmt(val)} kg`;
+      els.categoryLegend.appendChild(legendItem);
+    });
+  }
+
+  function renderSuggestions(list) {
+    els.suggestions.innerHTML = list.map(s =>
+      `<div class="suggestion-card">${escapeHtml(s)}</div>`
+    ).join('');
+  }
+
+  async function loadLog() {
+    const entries = await apiGet('/api/log?days=30');
+    if (entries.length === 0) {
+      els.ledgerList.innerHTML = '<div class="ledger-empty">No entries yet. Log your first activity above.</div>';
+      return;
+    }
+    els.ledgerList.innerHTML = entries.map(e => `
+      <div class="ledger-row" data-id="${e.id}">
+        <span class="icon" aria-hidden="true">${e.icon}</span>
+        <span class="desc">
+          <span class="label">${escapeHtml(e.label)}</span>
+          <span class="meta">${e.entry_date} · ${e.quantity} units</span>
+        </span>
+        <span class="amount ${e.kg_co2e === 0 ? 'zero' : ''}">${fmt(e.kg_co2e)} kg</span>
+        <button class="del-btn" aria-label="Delete entry: ${escapeHtml(e.label)} on ${e.entry_date}" data-id="${e.id}">✕</button>
+      </div>
+    `).join('');
+
+    els.ledgerList.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        try {
+          await apiDelete(`/api/log/${id}`);
+          showToast('Entry removed');
+          await refreshAll();
+        } catch (e) {
+          showToast('Could not delete entry');
+        }
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  async function refreshAll() {
+    await Promise.all([loadInsights(), loadLog()]);
+  }
+
+  els.activitySelect.addEventListener('change', updateUnitHint);
+
+  els.logForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    els.formError.classList.remove('show');
+
+    const activity_key = els.activitySelect.value;
+    const quantity = parseFloat(els.quantityInput.value);
+    const entry_date = els.dateInput.value;
+
+    if (!activity_key || isNaN(quantity) || quantity <= 0 || !entry_date) {
+      els.formError.textContent = 'Please fill in all fields with a valid amount.';
+      els.formError.classList.add('show');
+      return;
+    }
+
+    els.addBtn.disabled = true;
+    els.addBtn.textContent = 'Adding…';
+    try {
+      await apiPost('/api/log', { activity_key, quantity, entry_date });
+      els.quantityInput.value = '';
+      showToast('Entry added to ledger');
+      await refreshAll();
+    } catch (err) {
+      els.formError.textContent = err.message || 'Could not add entry.';
+      els.formError.classList.add('show');
+    } finally {
+      els.addBtn.disabled = false;
+      els.addBtn.textContent = 'Add entry';
+    }
+  });
+
+  els.saveTargetBtn.addEventListener('click', async () => {
+    const val = parseFloat(els.targetInput.value);
+    if (isNaN(val) || val <= 0) return;
+    try {
+      await apiPost('/api/target', { daily_target_kg: val });
+      els.targetSaved.classList.add('show');
+      setTimeout(() => els.targetSaved.classList.remove('show'), 1800);
+      await loadInsights();
+    } catch (err) {
+      showToast('Could not save target');
+    }
+  });
+
+  async function init() {
+    els.dateInput.value = new Date().toISOString().slice(0, 10);
+    els.dateInput.max = new Date().toISOString().slice(0, 10);
+    try {
+      await loadActivities();
+      await refreshAll();
+    } catch (err) {
+      els.ledgerList.innerHTML = `<div class="ledger-empty">Could not connect to the API server.<br>Make sure it's running at ${API_BASE} (see README).</div>`;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
